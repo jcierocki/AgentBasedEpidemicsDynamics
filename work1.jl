@@ -9,31 +9,35 @@ using JLD
 
 Random.seed!(69)
 
-my_x = 1:42
-
-CustomDist = Union{Distribution, Vector{Float64}}
-
+my_x = 1:20
 EX = 5
-r = 6
+r = 5
 p = EX/(r+EX)
 
-neg_bin = NegativeBinomial(r,p)::CustomDist
-# neg_bin = [0.5, 0.2, 0.2, 0.1]::CustomDist
+neg_bin = NegativeBinomial(r,p)::Union{Distribution, Vector{Float64}}
 
-plot(pdf(neg_bin, my_x))
+tmp_rand = rand(neg_bin, 1000)
+sum(tmp_rand .> 14)/1000
 
-pdf(neg_bin, 14)
+plot(pdf.(neg_bin, my_x))
+
+pdf(neg_bin, 15)
 
 ############
 
 my_x = 1:43
 
 EX = 21
-σ = 1/4
+σ = 0.8
 μ = log(EX)- (σ^2)/2
 
 log_norm = LogNormal(μ, σ)
-plot(pdf(log_norm, my_x))
+plot(pdf.(log_norm, my_x))
+
+pdf(log_norm, 42)
+
+tmp_logn = rand(log_norm, 1000)
+sum(tmp_logn .> 42)/1000
 
 cdf_discrete = cdf.(log_norm, my_x)
 pdf_discrete = cdf_discrete[2:end] - cdf_discrete[1:(end-1)]
@@ -93,3 +97,13 @@ dens_discrete2 = dens_discrete2 / sum(dens_discrete2)
 plot(dens_discrete2)
 
 save("data/discrete_dists.jld", "dist1", pdf_discrete2, "dist2", pdf_discrete)
+
+####################
+# 
+# my_x3 = 1:42
+#
+# EX = 21
+# β = 2
+# α = π/(EX*β*sin(π*β))
+#
+# log_logis = LogitNormal
