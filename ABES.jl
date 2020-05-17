@@ -54,10 +54,10 @@ function check_time_to_move(rng::MersenneTwister, time::T,
     end
 end
 
-function simulate(m::AgentModel{T}, max_iter::U) where T<:AbstractFloat where U<:Integer
+function simulate(m::AgentModel{T}, max_iter::Int64 = 0, seed::Int64 = 1234) where T<:AbstractFloat
     if n <= 1 throw(DomainError(n, "argument must be greater than 0")) end
 
-    rngs = let m = MersenneTwister(1234)
+    rngs = let m = MersenneTwister(seed)
             [m; accumulate(Future.randjump, fill(big(10)^20, Threads.nthreads()-1), init=m)]
         end
 
@@ -67,10 +67,10 @@ function simulate(m::AgentModel{T}, max_iter::U) where T<:AbstractFloat where U<
     state = DataFrame(s=n-1, e=0, i=1, c=0, d=0, r=0)
 
     iteration = 1
-    while iteration < max_iter
+    while iteration <= max_iter
 
         condition_changes = zeros(Int8, nv(m.G))
-        Threads.@threads for i in eachindex(population)
+        @inbounds Threads.@threads for i in eachindex(population)
             if population[i].condition == suspectible
                 for j in neighbors(m.G, i)
                     r = rand(rngs[Threads.threadid()])
@@ -105,11 +105,10 @@ function simulate(m::AgentModel{T}, max_iter::U) where T<:AbstractFloat where U<
             end
         end
 
+        return condition_changes
+
+        iteration += 1
     end
-
-
-
-
 
 end
 
