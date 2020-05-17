@@ -101,3 +101,8 @@ plot(dens_discrete2)
 save("data/duration_dists.jld", "e_duration", neg_bin, "i_duration", log_norm, "c_duration", logn2)
 
 ####################
+
+tmp_logn1 = rand(log_norm, 1000)
+tmp_logn1_round = round.(Int16, tmp_logn1)
+
+sum(tmp_logn1_round .> 42)/1000

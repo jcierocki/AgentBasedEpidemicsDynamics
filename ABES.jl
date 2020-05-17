@@ -9,6 +9,7 @@ using LightGraphs
 using Distributions
 using Statistics
 using Future
+using DataFrames
 
 @enum Condition begin
     suspectible = 1
@@ -21,7 +22,7 @@ end
 
 mutable struct Agent{T<:Unsigned}
     condition::Condition
-    inf_duration::T
+    end_time::T
 end
 
 mutable struct AgentModel{T<:AbstractFloat}
@@ -31,81 +32,53 @@ mutable struct AgentModel{T<:AbstractFloat}
     γ::T
     δ::T
     ζ::T
-    exposed_time::Vector{T}
-    infected_time::Vector{T}
-    carrier_time::Vector{T}
+    exposed_time::Distribution
+    infected_time::Distribution
+    carrier_time::Distribution
 end
 
-# α - prawdopobieństwo spotkania osoby z C
-# β - prawdopobieństwo spotkania osoby z I
-# γ - prawdopobieństwo trafienia z E do I zamiast C
-# δ - prawdopobieństwo zgonu
-# ζ - prawdopobieństwo wyzdrowienia bez odporności
-# mature_dist - rozkład dnia końca inkubacji
-# remove_dist - rozkład dnia zakończenia choroby (zgon lub wyleczenie)
-
-function check_time_to_move(rng::MersenneTwister, time::T,
-    discrete_dist::Vector{U}) where T <: Unsigned where U <: AbstractFloat
-
-    if time > length(discrete_dist)
-        return true
-    else
-        return rand(rng) < discrete_dist[time]
-    end
-end
-
-function simulate(m::AgentModel{T}, max_iter::Int64 = 0, seed::Int64 = 1234) where T<:AbstractFloat
-    if n <= 1 throw(DomainError(n, "argument must be greater than 0")) end
-
-    rngs = let m = MersenneTwister(seed)
-            [m; accumulate(Future.randjump, fill(big(10)^20, Threads.nthreads()-1), init=m)]
-        end
+function simulate(m::AgentModel{T}, max_iter::Int64 = 20, seed::Int64 = 1234) where T<:AbstractFloat
+    if max_iter <= 0 throw(DomainError(max_iter, "argument must be greater than 0")) end
 
     population = fill(Agent(suspectible, UInt16(0)), nv(m.G))
-    population[rand(rngs[1], 1:nv(m.G))] = Agent(infected, UInt16(1))
+    population[rand(1:nv(m.G))] = Agent(carrier, UInt16(1))
 
-    state = DataFrame(s=n-1, e=0, i=1, c=0, d=0, r=0)
+    state = DataFrame(s=nv(m.G)-1, e=0, i=0, c=1, d=0, r=0)
 
     iteration = 1
     while iteration <= max_iter
 
-        condition_changes = zeros(Int8, nv(m.G))
+        new_infections = falses(nv(m.G))
         @inbounds Threads.@threads for i in eachindex(population)
-            if population[i].condition == suspectible
+            if population[i].condition == carrier
                 for j in neighbors(m.G, i)
-                    r = rand(rngs[Threads.threadid()])
-                    if (population[j].condition == carrier && r < α) || (population[j].condition == infected && r < β)
-                        becomes_exposed[i] = Int8(1)
+                    if population[j].condition == suspectible && rand() < m.α && rand() < m.α
+                        new_infections[j] = true
                     end
-                end
-            elseif population[i].condition == carrier
-                for j in neighbors(m.G, i)
-                    r = rand(rngs[Threads.threadid()])
-                    if population[j].condition == suspectible && r < α
-                        becomes_exposed[j] = Int8(1)
-                    end
-                end
-                if check_time_to_move(rngs[Threads.threadid()], population[i].inf_duration, m.carrier_time)
-                    condition_changes[i] = rand(rngs[Threads.threadid()]) < ζ ? Int8(7) : Int8(6)
                 end
             elseif population[i].condition == infected
                 for j in neighbors(m.G, i)
-                    r = rand(rngs[Threads.threadid()])
-                    if population[j].condition == suspectible && r < β
-                        becomes_exposed[j] = Int8(1)
+                    if population[j].condition == suspectible && rand() < m.β && rand() < m.β
+                        new_infections[j] = true
                     end
-                end
-                if check_time_to_move(rngs[Threads.threadid()], population[i].inf_duration, m.infected_time)
-                    condition_changes[i] = rand(rngs[Threads.threadid()]) < δ ? Int8(4) : Int8(5)
-                end
-            elseif population[i].condition == exposed
-                if check_time_to_move(rngs[Threads.threadid()], population[i].inf_duration, m.exposed_time)
-                    condition_changes[i] = rand(rngs[Threads.threadid()]) < γ ? Int8(2) : Int8(3)
                 end
             end
         end
 
-        return condition_changes
+        @inbounds Threads.@threads for i in eachindex(population)
+            if population[i].condition == exposed && population[i].end_time == iteration
+
+            end
+            #### dokończ
+        end
+
+        @inbounds Threads.@threads for i in eachindex(new_infections)
+            if new_infections[i] == true
+                population[i] = Agent(exposed, iteration + round(UInt16, rand(m.exposed_time)))
+            end
+        end
+
+        return population
 
         iteration += 1
     end
@@ -113,3 +86,25 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 0, seed::Int64 = 1234) whe
 end
 
 end
+
+# if population[i].condition == suspectible
+#     for j in neighbors(m.G, i)
+#         r = eval(rexp)
+#         if (population[j].condition == carrier && r < m.α) || (population[j].condition == infected && r < m.β)
+#             new_infections[i] = true
+#         end
+#     end
+# else
+# if population[i].condition == carrier
+#     for j in neighbors(m.G, i)
+#         if population[j].condition == suspectible && eval(rexp) < m.α
+#             new_infections[j] = true
+#         end
+#     end
+# elseif population[i].condition == infected
+#     for j in neighbors(m.G, i)
+#         if population[j].condition == suspectible && eval(rexp) < m.β
+#             new_infections[j] = true
+#         end
+#     end
+# end
