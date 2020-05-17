@@ -21,28 +21,30 @@ sum(tmp_rand .> 14)/1000
 
 plot(pdf.(neg_bin, my_x))
 
-pdf(neg_bin, 15)
+pdf(neg_bin, 14)
 
 ############
 
-my_x = 1:43
+my_x = 0:42
 
-EX = 21
-σ = 0.8
-μ = log(EX)- (σ^2)/2
+EX = 14
+σ = 1/4
+μ = round(log(EX)- (σ^2)/2, digits = 2)
 
-log_norm = LogNormal(μ, σ)
+# log_norm = LogNormal(μ, σ)
+logn2 = LogNormal(μ, σ)
 plot(pdf.(log_norm, my_x))
 
 pdf(log_norm, 42)
+pdf(logn2, 21)
 
 tmp_logn = rand(log_norm, 1000)
 sum(tmp_logn .> 42)/1000
 
 cdf_discrete = cdf.(log_norm, my_x)
 pdf_discrete = cdf_discrete[2:end] - cdf_discrete[1:(end-1)]
-# pdf_discrete[42]
-pdf_discrete = pdf_discrete / sum(pdf_discrete) .+ 0.05
+pdf_discrete[42]
+# pdf_discrete = pdf_discrete / sum(pdf_discrete) .+ 0.05
 
 plot(pdf_discrete)
 
@@ -96,14 +98,6 @@ dens_discrete2 = dens_discrete2 / sum(dens_discrete2)
 
 plot(dens_discrete2)
 
-save("data/discrete_dists.jld", "dist1", pdf_discrete2, "dist2", pdf_discrete)
+save("data/duration_dists.jld", "e_duration", neg_bin, "i_duration", log_norm, "c_duration", logn2)
 
 ####################
-# 
-# my_x3 = 1:42
-#
-# EX = 21
-# β = 2
-# α = π/(EX*β*sin(π*β))
-#
-# log_logis = LogitNormal
