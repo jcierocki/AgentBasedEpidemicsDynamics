@@ -4,6 +4,8 @@ using Statistics
 using Distributions
 using Plots
 using Random
+using JLD
+
 
 Random.seed!(69)
 
@@ -33,10 +35,10 @@ EX = 21
 log_norm = LogNormal(μ, σ)
 plot(pdf(log_norm, my_x))
 
-cdf_discrete = cdf(log_norm, my_x)
+cdf_discrete = cdf.(log_norm, my_x)
 pdf_discrete = cdf_discrete[2:end] - cdf_discrete[1:(end-1)]
 # pdf_discrete[42]
-pdf_discrete = pdf_discrete / sum(pdf_discrete) + 0.05
+pdf_discrete = pdf_discrete / sum(pdf_discrete) .+ 0.05
 
 plot(pdf_discrete)
 
@@ -89,3 +91,5 @@ end
 dens_discrete2 = dens_discrete2 / sum(dens_discrete2)
 
 plot(dens_discrete2)
+
+save("data/discrete_dists.jld", "dist1", pdf_discrete2, "dist2", pdf_discrete)
