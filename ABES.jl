@@ -88,7 +88,7 @@ function simulate(m::AgentModel{T}, max_iter::U) where T<:AbstractFloat where U<
                 if check_time_to_move(rngs[Threads.threadid()], population[i].inf_duration, m.carrier_time)
                     condition_changes[i] = rand(rngs[Threads.threadid()]) < ζ ? Int8(7) : Int8(6)
                 end
-            elseif population[i].condition == suspectible
+            elseif population[i].condition == infected
                 for j in neighbors(m.G, i)
                     r = rand(rngs[Threads.threadid()])
                     if population[j].condition == suspectible && r < β
