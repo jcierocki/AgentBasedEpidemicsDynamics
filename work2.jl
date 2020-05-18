@@ -2,8 +2,6 @@
 
 using LightGraphs
 using JLD
-using Future
-
 
 # α - prawdopobieństwo spotkania osoby z C
 # β - prawdopobieństwo spotkania osoby z I

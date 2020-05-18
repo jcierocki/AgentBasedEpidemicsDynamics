@@ -8,7 +8,6 @@ using Random
 using LightGraphs
 using Distributions
 using Statistics
-using Future
 using DataFrames
 
 @enum Condition begin
@@ -66,15 +65,26 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, seed::Int64 = 1234) wh
         end
 
         @inbounds Threads.@threads for i in eachindex(population)
-            if population[i].condition == exposed && population[i].end_time == iteration
-
+            if population[i].end_time > 0 && population[i].end_time == iteration
+                if population[i].condition == exposed
+                    if rand() < m.γ
+                        population[i] = Agent(infected, round(UInt16, iteration + rand(m.infected_time)))
+                    else
+                        population[i] = Agent(carrier, round(UInt16, iteration + rand(m.carrier_time)))
+                    end
+                elseif population[i].condition == infected
+                    population[i].condition = rand() < m.δ ? dead : recovered
+                    population[i].end_time = UInt16(0)
+                elseif population[i].condition == carrier
+                    population[i].condition = rand() < m.ζ ? suspectible : recovered
+                    population[i].end_time = UInt16(0)
+                end
             end
-            #### dokończ
         end
 
         @inbounds Threads.@threads for i in eachindex(new_infections)
             if new_infections[i] == true
-                population[i] = Agent(exposed, iteration + round(UInt16, rand(m.exposed_time)))
+                population[i] = Agent(exposed, round(UInt16, iteration + rand(m.exposed_time)))
             end
         end
 
@@ -86,25 +96,3 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, seed::Int64 = 1234) wh
 end
 
 end
-
-# if population[i].condition == suspectible
-#     for j in neighbors(m.G, i)
-#         r = eval(rexp)
-#         if (population[j].condition == carrier && r < m.α) || (population[j].condition == infected && r < m.β)
-#             new_infections[i] = true
-#         end
-#     end
-# else
-# if population[i].condition == carrier
-#     for j in neighbors(m.G, i)
-#         if population[j].condition == suspectible && eval(rexp) < m.α
-#             new_infections[j] = true
-#         end
-#     end
-# elseif population[i].condition == infected
-#     for j in neighbors(m.G, i)
-#         if population[j].condition == suspectible && eval(rexp) < m.β
-#             new_infections[j] = true
-#         end
-#     end
-# end
