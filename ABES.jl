@@ -44,11 +44,11 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1,
     view(population, rand(1:nv(m.G), c_count₀)) .= [ Agent(carrier, round(UInt16, rand(m.carrier_time))) for i in 1:c_count₀ ]
     view(population, rand(1:nv(m.G), i_count₀)) .= [ Agent(infected, round(UInt16, rand(m.infected_time))) for i in 1:i_count₀ ]
 
-    s_count, e_count, i_count, c_count, d_count, r_count = Threads.Atomic{Int64}{nv(m.G)-c_count₀-i_count₀}, Threads.Atomic{Int64}{0}, Threads.Atomic{Int64}{i_count₀}, Threads.Atomic{Int64}{c_count₀}, Threads.Atomic{Int64}{0}, Threads.Atomic{Int64}{0}
-    state = DataFrame("suspectible"=nv(m.G)-1, "exposed"=e_count[], "infected"=i_count[], "carrier"=c_count[], "dead"=d_count[], "recovered"=r_count[])
+    s_count, e_count, i_count, c_count, d_count, r_count = Threads.Atomic{Int64}(nv(m.G)-c_count₀-i_count₀), Threads.Atomic{Int64}(0), Threads.Atomic{Int64}(i_count₀), Threads.Atomic{Int64}(c_count₀), Threads.Atomic{Int64}(0), Threads.Atomic{Int64}(0)
+    state = DataFrame(suspectible=nv(m.G)-1, exposed=e_count[], infected=i_count[], carrier=c_count[], dead=d_count[], recovered=r_count[])
 
     iteration = 1
-    while iteration <= max_iter
+    while (e_count[] + i_count[] + c_count[]) > 0 && iteration <= max_iter
 
         new_infections = falses(nv(m.G))
         @inbounds Threads.@threads for i in eachindex(population)
@@ -67,44 +67,46 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1,
             end
         end
 
-        @inbounds Threads.@threads for i in eachindex(population)
-            if population[i].end_time > 0 && population[i].end_time == iteration
-                if population[i].condition == exposed
-                    Threads.atomic_sub!(e_count, UInt16(1))
-                    if rand() < m.γ
-                        population[i] = Agent(infected, round(UInt16, iteration + rand(m.infected_time)))
-                        Threads.atomic_add!(i_count, UInt16(1))
-                    else
-                        population[i] = Agent(carrier, round(UInt16, iteration + rand(m.carrier_time)))
-                        Threads.atomic_add!(c_count, UInt16(1))
-                    end
-                elseif population[i].condition == infected
-                    Threads.atomic_sub!(i_count, UInt16(1))
-                    population[i].end_time = UInt16(0)
-                    if rand() < m.δ
-                        population[i].condition = dead
-                        Threads.atomic_add!(d_count, UInt16(1))
-                    else
-                        population[i].condition = recovered
-                        Threads.atomic_add!(r_count, UInt16(1))
-                    end
-                elseif population[i].condition == carrier
-                    Threads.atomic_sub!(c_count, UInt16(1))
-                    population[i].end_time = UInt16(0)
-                    if rand() < m.ζ
-                        population[i].condition = suspectible
-                        Threads.atomic_add!(s_count, UInt16(1))
-                    else
-                        population[i].condition = recovered
-                        Threads.atomic_add!(r_count, UInt16(1))
-                    end
-                end
+        @inbounds Threads.@threads for i in eachindex(new_infections)
+            if new_infections[i] == true
+                # Threads.atomic_sub!(s_count, 1)
+                # Threads.atomic_add!(e_count, 1)
+                population[i] = Agent(exposed, round(UInt16, iteration + 1 + rand(m.exposed_time)))
             end
         end
 
-        @inbounds Threads.@threads for i in eachindex(new_infections)
-            if new_infections[i] == true
-                population[i] = Agent(exposed, round(UInt16, iteration + rand(m.exposed_time)))
+        @inbounds Threads.@threads for i in eachindex(population)
+            if population[i].end_time > 0 && population[i].end_time == iteration
+                if population[i].condition == exposed
+                    Threads.atomic_sub!(e_count, 1)
+                    if rand() < m.γ
+                        population[i] = Agent(infected, round(UInt16, iteration + rand(m.infected_time)))
+                        Threads.atomic_add!(i_count, 1)
+                    else
+                        population[i] = Agent(carrier, round(UInt16, iteration + rand(m.carrier_time)))
+                        Threads.atomic_add!(c_count, 1)
+                    end
+                elseif population[i].condition == infected
+                    Threads.atomic_sub!(i_count, 1)
+                    population[i].end_time = UInt16(0)
+                    if rand() < m.δ
+                        population[i].condition = dead
+                        Threads.atomic_add!(d_count, 1)
+                    else
+                        population[i].condition = recovered
+                        Threads.atomic_add!(r_count, 1)
+                    end
+                elseif population[i].condition == carrier
+                    Threads.atomic_sub!(c_count, 1)
+                    population[i].end_time = UInt16(0)
+                    if rand() < m.ζ
+                        population[i].condition = suspectible
+                        Threads.atomic_add!(s_count, 1)
+                    else
+                        population[i].condition = recovered
+                        Threads.atomic_add!(r_count, 1)
+                    end
+                end
             end
         end
 
@@ -112,12 +114,12 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1,
         s_count[] -= new_infections_numb
         e_count[] += new_infections_numb
 
-        push!(state, s_count[], e_count[], i_count[], c_count[], d_count[], r_count[])
+        push!(state, (s_count[], e_count[], i_count[], c_count[], d_count[], r_count[]))
 
         iteration += 1
     end
 
-    return state
+    return (state, population)
 
 end
 
