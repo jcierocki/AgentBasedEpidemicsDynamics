@@ -4,6 +4,8 @@ using LightGraphs
 using JLD
 using Distributions
 using DataFrames
+using Plots
+using CSV
 
 # α - prawdopobieństwo spotkania osoby z C
 # β - prawdopobieństwo spotkania osoby z I
@@ -14,20 +16,25 @@ using DataFrames
 ws_graph1 = watts_strogatz(UInt32(1_000_000), 15, 0.3)
 
 dists = collect(values(load("data/duration_dists.jld")))[[3,1,2]]
-param_probs = [0.2, 0.05, 0.8, 0.005, 0.05]
+param_probs = [0.2, 0.05, 0.8, 0.01, 0.05]
 
 model1 = ABES.AgentModel(ws_graph1, param_probs..., dists...)
 @time tmp_state, tmp_pop = ABES.simulate(model1, 1000, 3)
 
-first(tmp_result, 40)
-last(tmp_result, 40)
+CSV.write("data/results1.csv", tmp_state)
 
-length(findall(x -> x.condition == ABES.exposed, tmp_pop))
+plt1 = plot(tmp_state.suspectible, label = "zdrowy")
+plot!(plt1, tmp_state.recovered, label = "wyzdrowiały")
 
-exposed_subarr = view(tmp_pop, findall(x -> x.condition == ABES.exposed, tmp_pop))
+savefig(plt1, "figures/s_and_r.png")
 
-Int16(exposed_subarr[3].end_time)
+plt2 = plot(tmp_state.infected, label = "chory")
+plot!(plt2, tmp_state.exposed, label = "inkubacja")
+plot!(plt2, tmp_state.carrier, label = "nosiciel")
+plot!(plt2, tmp_state.dead, label = "zmarły")
 
-end_days = map(x -> Int16(x.end_time), exposed_subarr)
+savefig(plt2, "figures/i_e_c_d.png")
 
-pdf(dists[1], 0)
+sums = [ sum(view(tmp_state, i, :)) for i in 1:nrow(tmp_state) ]
+
+sum(sums .!= 1_000_000)

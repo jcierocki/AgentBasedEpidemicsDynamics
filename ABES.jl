@@ -45,7 +45,7 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1,
     view(population, rand(1:nv(m.G), i_count₀)) .= [ Agent(infected, round(UInt16, rand(m.infected_time))) for i in 1:i_count₀ ]
 
     s_count, e_count, i_count, c_count, d_count, r_count = Threads.Atomic{Int64}(nv(m.G)-c_count₀-i_count₀), Threads.Atomic{Int64}(0), Threads.Atomic{Int64}(i_count₀), Threads.Atomic{Int64}(c_count₀), Threads.Atomic{Int64}(0), Threads.Atomic{Int64}(0)
-    state = DataFrame(suspectible=nv(m.G)-1, exposed=e_count[], infected=i_count[], carrier=c_count[], dead=d_count[], recovered=r_count[])
+    state = DataFrame(suspectible=s_count[], exposed=e_count[], infected=i_count[], carrier=c_count[], dead=d_count[], recovered=r_count[])
 
     iteration = 1
     while (e_count[] + i_count[] + c_count[]) > 0 && iteration <= max_iter
