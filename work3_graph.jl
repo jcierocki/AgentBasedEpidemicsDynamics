@@ -4,7 +4,6 @@ using ABCDGraphGenerator
 using LightGraphs
 using CSV
 using DataFrames
-using GraphIO
 
 N = 1_000_000
 communities = CSV.read("data/powiaty.csv")
@@ -19,12 +18,8 @@ graph_params1 = ABCDGraphGenerator.ABCDParams(vertex_degrees, cluster_sizes, not
 
 @time edges, clusters = ABCDGraphGenerator.gen_graph(graph_params1)
 
-edge_pair_df = DataFrame(edges)
-CSV.write("data/abcd_edges.txt", edge_pair_df, writeheader=false)
+edges = Edge.(collect(Tuple{Int32, Int32}.(edges)))
 
-graph_moddel1 = loadgraph("data/abcd_edges.txt", "graph_key", EdgeListFormat())
-graph_model1 = graph_moddel1
-
-vert1 = vertices(graph_model1)
+graph_model1 = SimpleGraph(edges)
 
 savegraph("data/abcd_graph1.lgz", graph_model1)

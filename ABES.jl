@@ -119,7 +119,7 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1,
         iteration += 1
     end
 
-    return (state, population)
+    return state
 
 end
 
