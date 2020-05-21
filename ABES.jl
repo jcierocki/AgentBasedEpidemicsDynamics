@@ -45,7 +45,7 @@ function generate_initial_population(N::T, E₀::T, I₀::T, C₀::T, exposed_ti
     population = fill(Agent(suspectible, UInt16(0)), N)
 
     indexes = rand(1:N, E₀+C₀+I₀)
-    view(population, indexes[1:E₀]) .= [ Agent(exposed, round(UInt16, rand(exposed_time))) for i in 1:E₀ ]
+    view(population, indexes[1:E₀]) .= [ Agent(exposed, round(UInt16, rand(exposed_time)+1)) for i in 1:E₀ ]
     view(population, indexes[(E₀+1):(E₀+C₀)]) .= [ Agent(carrier, round(UInt16, rand(carrier_time))) for i in 1:C₀ ]
     view(population, indexes[(C₀+1):(C₀+I₀)]) .= [ Agent(infected, round(UInt16, rand(infected_time))) for i in 1:I₀ ]
 
