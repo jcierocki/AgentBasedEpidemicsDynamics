@@ -24,7 +24,7 @@ mutable struct Agent{T<:Unsigned}
     end_time::T
 end
 
-mutable struct AgentModel{T<:AbstractFloat}
+mutable struct AgentModel{T<:AbstractFloat, U<:Integer, V<:Unsigned}
     G::AbstractGraph
     α::T
     β::T
@@ -34,25 +34,39 @@ mutable struct AgentModel{T<:AbstractFloat}
     exposed_time::Distribution
     infected_time::Distribution
     carrier_time::Distribution
+    E₀::U
+    I₀::U
+    C₀::U
+    initial_population::Vector{Agent{V}}
 end
 
-# function generate_initial_population(N::T, E₀::T, I₀::T, C₀::T, type = UInt16) where T <: Integer
-#     population = fill(Agent(suspectible, UInt16(0)), N)
-# end
+## zaimplementuj bardziej generycznie typy
+function generate_initial_population(N::T, E₀::T, I₀::T, C₀::T, exposed_time::Distribution, infected_time::Distribution, carrier_time::Distribution) where T <: Integer
+    population = fill(Agent(suspectible, UInt16(0)), N)
 
-function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1, i_count₀::Int64 = 0) where T<:AbstractFloat
+    indexes = rand(1:N, E₀+C₀+I₀)
+    view(population, indexes[1:E₀]) .= [ Agent(exposed, round(UInt16, rand(exposed_time))) for i in 1:E₀ ]
+    view(population, indexes[(E₀+1):(E₀+C₀)]) .= [ Agent(carrier, round(UInt16, rand(carrier_time))) for i in 1:C₀ ]
+    view(population, indexes[(C₀+1):(C₀+I₀)]) .= [ Agent(infected, round(UInt16, rand(infected_time))) for i in 1:I₀ ]
+
+    return DataFrame(:Condition => [Int32(a.condition) for a in population],
+    :Time => [a.end_time for a in population])
+end
+
+function load_initial_population(df::DataFrame)
+    return [ Agent(Condition(df.Condition[i]), UInt16(df.Time[i])) for i in 1:nrow(df) ]
+end
+
+function simulate(m::AgentModel, max_iter::Int64)
     if max_iter <= 0 throw(DomainError(max_iter, "argument must be greater than 0")) end
 
-    population = fill(Agent(suspectible, UInt16(0)), nv(m.G))
+    population = deepcopy(m.initial_population)
 
-    view(population, rand(1:nv(m.G), c_count₀)) .= [ Agent(carrier, round(UInt16, rand(m.carrier_time))) for i in 1:c_count₀ ]
-    view(population, rand(1:nv(m.G), i_count₀)) .= [ Agent(infected, round(UInt16, rand(m.infected_time))) for i in 1:i_count₀ ]
-
-    s_count, e_count, i_count, c_count, d_count, r_count = Threads.Atomic{Int64}(nv(m.G)-c_count₀-i_count₀), Threads.Atomic{Int64}(0), Threads.Atomic{Int64}(i_count₀), Threads.Atomic{Int64}(c_count₀), Threads.Atomic{Int64}(0), Threads.Atomic{Int64}(0)
-    state = DataFrame(suspectible=s_count[], exposed=e_count[], infected=i_count[], carrier=c_count[], dead=d_count[], recovered=r_count[])
+    S, E, I, C, D, R = Threads.Atomic{Int64}(nv(m.G)-m.E₀-m.C₀-m.I₀), Threads.Atomic{Int64}(m.E₀), Threads.Atomic{Int64}(m.I₀), Threads.Atomic{Int64}(m.C₀), Threads.Atomic{Int64}(0), Threads.Atomic{Int64}(0)
+    state = DataFrame(suspectible=S[], exposed=E[], infected=I[], carrier=C[], dead=D[], recovered=R[])
 
     iteration = 1
-    while (e_count[] + i_count[] + c_count[]) > 0 && iteration <= max_iter
+    while (E[] + I[] + C[]) > 0 && iteration <= max_iter
 
         new_infections = falses(nv(m.G))
         @inbounds Threads.@threads for i in eachindex(population)
@@ -73,8 +87,6 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1,
 
         @inbounds Threads.@threads for i in eachindex(new_infections)
             if new_infections[i] == true
-                # Threads.atomic_sub!(s_count, 1)
-                # Threads.atomic_add!(e_count, 1)
                 population[i] = Agent(exposed, round(UInt16, iteration + 1 + rand(m.exposed_time)))
             end
         end
@@ -82,43 +94,43 @@ function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1,
         @inbounds Threads.@threads for i in eachindex(population)
             if population[i].end_time > 0 && population[i].end_time == iteration
                 if population[i].condition == exposed
-                    Threads.atomic_sub!(e_count, 1)
+                    Threads.atomic_sub!(E, 1)
                     if rand() < m.γ
                         population[i] = Agent(infected, round(UInt16, iteration + rand(m.infected_time)))
-                        Threads.atomic_add!(i_count, 1)
+                        Threads.atomic_add!(I, 1)
                     else
                         population[i] = Agent(carrier, round(UInt16, iteration + rand(m.carrier_time)))
-                        Threads.atomic_add!(c_count, 1)
+                        Threads.atomic_add!(C, 1)
                     end
                 elseif population[i].condition == infected
-                    Threads.atomic_sub!(i_count, 1)
+                    Threads.atomic_sub!(I, 1)
                     population[i].end_time = UInt16(0)
                     if rand() < m.δ
                         population[i].condition = dead
-                        Threads.atomic_add!(d_count, 1)
+                        Threads.atomic_add!(D, 1)
                     else
                         population[i].condition = recovered
-                        Threads.atomic_add!(r_count, 1)
+                        Threads.atomic_add!(R, 1)
                     end
                 elseif population[i].condition == carrier
-                    Threads.atomic_sub!(c_count, 1)
+                    Threads.atomic_sub!(C, 1)
                     population[i].end_time = UInt16(0)
                     if rand() < m.ζ
                         population[i].condition = suspectible
-                        Threads.atomic_add!(s_count, 1)
+                        Threads.atomic_add!(S, 1)
                     else
                         population[i].condition = recovered
-                        Threads.atomic_add!(r_count, 1)
+                        Threads.atomic_add!(R, 1)
                     end
                 end
             end
         end
 
         new_infections_numb = sum(new_infections)
-        s_count[] -= new_infections_numb
-        e_count[] += new_infections_numb
+        S[] -= new_infections_numb
+        E[] += new_infections_numb
 
-        push!(state, (s_count[], e_count[], i_count[], c_count[], d_count[], r_count[]))
+        push!(state, (S[], E[], I[], C[], D[], R[]))
 
         iteration += 1
     end
