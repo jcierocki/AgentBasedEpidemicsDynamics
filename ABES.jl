@@ -26,7 +26,7 @@ end
 
 mutable struct AgentModel{T<:AbstractFloat, U<:Integer, V<:Unsigned}
     G::AbstractGraph
-    α::T
+    α::Union{Vector{T},T}
     β::T
     γ::T
     δ::T
@@ -57,8 +57,15 @@ function load_initial_population(df::DataFrame)
     return [ Agent(Condition(df.Condition[i]), UInt16(df.Time[i])) for i in 1:nrow(df) ]
 end
 
-function simulate(m::AgentModel, max_iter::Int64)
+function simulate(m::AgentModel{T,U,V}, max_iter::Int64) where {T<:AbstractFloat, U<:Integer, V<:Unsigned}
     if max_iter <= 0 throw(DomainError(max_iter, "argument must be greater than 0")) end
+    if typeof(m.α) == Vector{T} && length(m.α) < max_iter throw(DomainError(max_iter, "α can't be shortert that max_iter")) end
+
+    if typeof(m.α) == Vector{T}
+        α_vector = m.α
+    else
+        α_vector = fill(m.α, max_iter)
+    end
 
     population = deepcopy(m.initial_population)
 
@@ -67,6 +74,9 @@ function simulate(m::AgentModel, max_iter::Int64)
 
     iteration = 1
     while (E[] + I[] + C[]) > 0 && iteration <= max_iter
+        m.α = α_vector[iteration]
+
+        println(iteration, " | ", m.α)
 
         new_infections = falses(nv(m.G))
         @inbounds Threads.@threads for i in eachindex(population)
