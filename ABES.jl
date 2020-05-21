@@ -2,7 +2,7 @@
 
 module ABES
 
-export simulate_base
+export simulate_base, generate_initial_population
 
 using Random
 using LightGraphs
@@ -35,6 +35,10 @@ mutable struct AgentModel{T<:AbstractFloat}
     infected_time::Distribution
     carrier_time::Distribution
 end
+
+# function generate_initial_population(N::T, E₀::T, I₀::T, C₀::T, type = UInt16) where T <: Integer
+#     population = fill(Agent(suspectible, UInt16(0)), N)
+# end
 
 function simulate(m::AgentModel{T}, max_iter::Int64 = 20, c_count₀::Int64 = 1, i_count₀::Int64 = 0) where T<:AbstractFloat
     if max_iter <= 0 throw(DomainError(max_iter, "argument must be greater than 0")) end

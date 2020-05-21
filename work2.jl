@@ -16,12 +16,15 @@ using CSV
 # ws_graph1 = watts_strogatz(UInt32(1_000_000), 15, 0.3)
 ws_graph2 = loadgraph("data/abcd_graph1.lgz")
 
-dists = collect(values(load("data/duration_dists.jld")))[[3,1,2]]
-α = 0.3
-param_probs = [α, α/4, 0.5, 0.01, 0.05]
+dists = load("data/duration_dists.jld")
+dists = [dists["F_E"], dists["F_I"], dists["F_C"]]
+α = 0.1
+param_probs = [α, 0.01, 0.5, 0.015, 0.05]
 
 model1 = ABES.AgentModel(ws_graph2, param_probs..., dists...)
-@time df_results = ABES.simulate(model1, 60, 3)
+@time df_results = ABES.simulate(model1, 61, 30, 30)
+
+plot(df_results.infected)
 
 # CSV.write("data/results1.csv", df_results)
 #
