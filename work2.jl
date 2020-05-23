@@ -21,38 +21,32 @@ pop = ABES.load_initial_population(pop_df)
 
 dists = load("data/duration_dists.jld")
 dists = [dists["F_E"], dists["F_I"], dists["F_C"]]
-# α = vcat(range(0.2, 0.16, length=10), range(0.16, 0.07, length=10), range(0.07, 0.057, length=10), range(0.057, 0.065, length=70))
-# α = vcat(range(0.2, 0.14, length=20), range(0.14, 0.08, length=10), range(0.08, 0.11, length=70))
-α = vcat(fill(0.15, 40), fill(0.12, 40), fill(0.06, 40), fill(0.08, 50))
+# α = vcat(fill(0.15, 40), fill(0.12, 40), fill(0.06, 40), fill(0.08, 50))
+α = 0.09
 param_probs = [0.01, 0.5, 0.015, 0.025]
 
 model1 = ABES.AgentModel(ws_graph, α, param_probs..., dists..., 5, 5, 5, pop)
-# model2 = ABES.AgentModel(graph_model1, param_probs..., dists..., 10, 10, 10, pop)
-@time df_results = ABES.simulate(model1, 169)
-
-first(df_results, 60)
-df_results.suspectible[end]
-# plot(α)
-
-plot(df_results.infected, label = :infected)
-plot!(df_results.exposed, label = :exposed)
-plot!(df_results.carrier, label = :carrier)
-
-# CSV.write("data/results_0125_0075_shoct_85_85.csv", df_results)
-# CSV.write("data/results_012_006_0085_85_45_40.csv", df_results)
-CSV.write("data/results_015_012_006_0085_40_40_40_50.csv", df_results)
+# @time df_results = ABES.simulate(model1, 179)
+#
+# first(df_results, 60)
+# df_results.suspectible[end]
+# # plot(α)
+#
+# plot(df_results.infected, label = :infected)
+# plot!(df_results.exposed, label = :exposed)
+# plot!(df_results.carrier, label = :carrier)
+#
+# # CSV.write("data/results_0125_0075_shoct_85_85.csv", df_results)
+# # CSV.write("data/results_012_006_0085_85_45_40.csv", df_results)
+# CSV.write("data/results_015_012_006_0085_40_40_40_50.csv", df_results)
 
 ###########
 
-N_rep = 8
+N_rep = 9
 sim_res = Vector{Union{DataFrame, Nothing}}(nothing, N_rep)
 @showprogress "Simulating ..." for i in 1:N_rep
-    sim_res[i] = ABES.simulate(model1, 149)
+    sim_res[i] = ABES.simulate(model1, 179)
 end
-
-# mean(map(x->x.infected[end], sim_res))
-# mean(map(x->x.suspectible[end], sim_res))
-# mean(map(x->x.dead[end], sim_res))
 
 plt = plot(sim_res[1].infected)
 for i in 2:N_rep
@@ -62,13 +56,13 @@ end
 plt
 
 total_df = sim_res[1]
-total_df.idx = fill(1, 150)
+total_df.idx = fill(1, 180)
 for i in 2:N_rep
-    sim_res[i].idx = fill(i, 150)
+    sim_res[i].idx = fill(i, 180)
     append!(total_df, sim_res[i])
 end
 
-CSV.write("data/total_results_011.csv", total_df)
+CSV.write("data/tot_res_009.csv", total_df)
 
 # CSV.write("data/results2.csv", df_results)
 
