@@ -31,7 +31,7 @@ model1 = ABES.AgentModel(ws_graph, α, param_probs..., dists..., 5, 5, 5, pop)
 #
 # first(df_results, 60)
 # df_results.suspectible[end]
-# # plot(α)
+plot(α)
 #
 plot(df_results.infected, label = :infected)
 plot!(df_results.exposed, label = :exposed)
